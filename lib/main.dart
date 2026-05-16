@@ -19,9 +19,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      theme: ThemeData.dark().copyWith(
-        scaffoldBackgroundColor: const Color(0xFF0A0A0A),
-      ),
+      theme: ThemeData.dark().copyWith(scaffoldBackgroundColor: const Color(0xFF0A0A0A)),
       home: const HomeScreen(),
     );
   }
@@ -44,15 +42,15 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateMixin {
   final supabase = Supabase.instance.client;
 
-  List clientes = [];
+  List clientes          = [];
   List clientesFiltrados = [];
 
-  String filtroEstado   = "Todos";
-  String filtroPaquete  = "Todos";
+  String filtroEstado  = "Todos";
+  String filtroPaquete = "Todos";
   int?   filtroAnio;
   int?   filtroMes;
 
-  List<String> paquetes  = ["Todos"];
+  List<String> paquetes   = ["Todos"];
   List<int>    listaAnios = [];
 
   final buscador         = TextEditingController();
@@ -74,8 +72,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
-    final now = DateTime.now();
-    filtroAnio = now.year;
+    filtroAnio = DateTime.now().year;
     cargarClientes();
     autoRefresh = Timer.periodic(const Duration(seconds: 30), (_) => cargarClientes());
   }
@@ -91,7 +88,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Future<void> cargarClientes() async {
     final data = await supabase.from('ventas').select().order('fecha_compra', ascending: false);
-
     Set<String> listaPaquetes = {"Todos"};
     Set<int> anios = {};
     int activos = 0, vencidos = 0;
@@ -103,10 +99,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       final fecha = DateTime.tryParse(c['fecha_compra'] ?? '') ?? now;
       anios.add(fecha.year);
       if ((c['paquete'] ?? '').toString().isNotEmpty) listaPaquetes.add(c['paquete']);
-
-      final venc = _fechaVencimiento(c);
-      if (now.isAfter(venc)) vencidos++; else activos++;
-
+      if (now.isAfter(_fechaVencimiento(c))) vencidos++; else activos++;
       if (fecha.year == now.year) {
         final key = mesesTexto[fecha.month - 1];
         porMes[key] = (porMes[key] ?? 0) + (c['monto'] ?? 0).toDouble();
@@ -116,16 +109,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     }
 
     setState(() {
-      clientes        = data;
-      paquetes        = listaPaquetes.toList();
-      listaAnios      = anios.toList()..sort((b, a) => a.compareTo(b));
-      totalActivos    = activos;
-      totalVencidos   = vencidos;
-      ingresosMes     = ingresosMesActual;
-      ingresosAnio    = ingresosAnioActual;
-      ingresosPorMes  = porMes;
+      clientes = data;
+      paquetes = listaPaquetes.toList();
+      listaAnios = anios.toList()..sort((b, a) => a.compareTo(b));
+      totalActivos = activos;
+      totalVencidos = vencidos;
+      ingresosMes = ingresosMesActual;
+      ingresosAnio = ingresosAnioActual;
+      ingresosPorMes = porMes;
     });
-
     aplicarFiltros();
   }
 
@@ -139,15 +131,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   int  diasParaVencer(Map c) => _fechaVencimiento(c).difference(DateTime.now()).inDays;
 
   void aplicarFiltros() {
-    final texto = buscador.text.toLowerCase();
+    final texto    = buscador.text.toLowerCase().replaceAll(' ', '');
     final res = clientes.where((c) {
       final nombre  = (c['nombre_fb'] ?? '').toLowerCase();
       final email   = (c['email']    ?? '').toLowerCase();
-      final tel     = (c['telefono'] ?? '').toLowerCase();
+      final tel     = (c['telefono'] ?? '').toLowerCase().replaceAll(' ', '');
       final paquete = (c['paquete']  ?? '');
       final fecha   = DateTime.tryParse(c['fecha_compra'] ?? '') ?? DateTime.now();
       final vencido = estaVencido(c);
-
       if (texto.isNotEmpty && !nombre.contains(texto) && !email.contains(texto) && !tel.contains(texto)) return false;
       if (filtroEstado  == "Vencidos" && !vencido) return false;
       if (filtroEstado  == "Activos"  &&  vencido) return false;
@@ -162,11 +153,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       final fb = DateTime.tryParse(b['fecha_compra'] ?? '') ?? DateTime(2000);
       return fb.compareTo(fa);
     });
-
     setState(() => clientesFiltrados = res);
   }
 
-  // Identidad principal: nombre > email > teléfono
   String _identidad(Map c) {
     final n = (c['nombre_fb'] ?? '').toString().trim();
     final e = (c['email']    ?? '').toString().trim();
@@ -188,20 +177,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return extras.join(' · ');
   }
 
-  // Historial de UN cliente buscando en TODOS los años
   List _historialCompleto(Map c) {
     final email  = (c['email']    ?? '').toString().trim();
     final tel    = (c['telefono'] ?? '').toString().trim();
     final nombre = (c['nombre_fb']?? '').toString().trim();
-
-    // Busca en TODOS los clientes (sin filtro de año)
     List hist = clientes.where((x) {
       if (email.isNotEmpty  && (x['email']    ?? '').toString().trim() == email)  return true;
       if (tel.isNotEmpty && tel.length > 5 && (x['telefono'] ?? '').toString().trim() == tel) return true;
       if (nombre.isNotEmpty && nombre.length > 3 && (x['nombre_fb'] ?? '').toString().trim() == nombre) return true;
       return false;
     }).toList();
-
     hist.sort((a, b) {
       final fa = DateTime.tryParse(a['fecha_compra'] ?? '') ?? DateTime(2000);
       final fb = DateTime.tryParse(b['fecha_compra'] ?? '') ?? DateTime(2000);
@@ -215,8 +200,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final identidad   = _identidad(c);
     final totalPagado = historial.fold<double>(0, (s, x) => s + (x['monto'] ?? 0).toDouble());
 
-    showDialog(
-      context: context,
+    showDialog(context: context,
       builder: (_) => Dialog(
         backgroundColor: kCard,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
@@ -298,7 +282,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
       SnackBar(content: Text(msg), backgroundColor: kCard2, duration: const Duration(seconds: 3)));
   }
 
-  // ─── FORMULARIO AGREGAR ──────────────────────────────────
+  // ─── FORMULARIOS ─────────────────────────────────────────
   void mostrarFormularioAgregar() {
     final nombre   = TextEditingController();
     final email    = TextEditingController();
@@ -356,7 +340,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  // ─── FORMULARIO EDITAR ───────────────────────────────────
   void mostrarFormularioEditar(Map c) {
     final nombre   = TextEditingController(text: c['nombre_fb'] ?? '');
     final email    = TextEditingController(text: c['email']     ?? '');
@@ -456,7 +439,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         title: Row(children: [
           Image.asset('assets/images/logo.png', height: 26),
           const SizedBox(width: 8),
-          // ✅ Nombre sin POS
           const Text("Remix Pro DJ", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         ]),
         actions: [
@@ -473,8 +455,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           unselectedLabelColor: Colors.white38,
           labelStyle: const TextStyle(fontSize: 12),
           tabs: const [
-            Tab(icon: Icon(Icons.list_alt, size: 16), text: "Ventas"),
-            Tab(icon: Icon(Icons.bar_chart, size: 16), text: "Dashboard"),
+            Tab(icon: Icon(Icons.list_alt, size: 16),       text: "Ventas"),
+            Tab(icon: Icon(Icons.bar_chart, size: 16),      text: "Dashboard"),
             Tab(icon: Icon(Icons.people_outline, size: 16), text: "Clientes"),
           ],
         ),
@@ -493,12 +475,28 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   // ─── TAB VENTAS ──────────────────────────────────────────
   Widget _tabVentas() {
-    final vencidos   = clientesFiltrados.where((c) => estaVencido(c)).length;
-    final activos    = clientesFiltrados.where((c) => !estaVencido(c)).length;
-    final acumFiltro = clientesFiltrados.fold<double>(0, (s, c) => s + (c['monto'] ?? 0).toDouble());
+    // Conteos sobre el filtro actual sin filtro de estado
+    final sinFiltroEstado = clientes.where((c) {
+      final texto   = buscador.text.toLowerCase();
+      final nombre  = (c['nombre_fb'] ?? '').toLowerCase();
+      final email   = (c['email']    ?? '').toLowerCase();
+      final tel     = (c['telefono'] ?? '').toLowerCase();
+      final paquete = (c['paquete']  ?? '');
+      final fecha   = DateTime.tryParse(c['fecha_compra'] ?? '') ?? DateTime.now();
+      if (texto.isNotEmpty && !nombre.contains(texto) && !email.contains(texto) && !tel.contains(texto)) return false;
+      if (filtroPaquete != "Todos" && paquete != filtroPaquete) return false;
+      if (filtroAnio != null && fecha.year  != filtroAnio) return false;
+      if (filtroMes  != null && fecha.month != filtroMes)  return false;
+      return true;
+    }).toList();
+
+    final cntVencidos = sinFiltroEstado.where((c) =>  estaVencido(c)).length;
+    final cntActivos  = sinFiltroEstado.where((c) => !estaVencido(c)).length;
+    final acumFiltro  = clientesFiltrados.fold<double>(0, (s, c) => s + (c['monto'] ?? 0).toDouble());
 
     return Column(children: [
-      // ✅ Buscador compacto
+
+      // ── Buscador compacto ──
       Padding(
         padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
         child: SizedBox(
@@ -519,81 +517,95 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         ),
       ),
 
-      // ✅ Fila filtros: Estado (botones) + Mes + Paquete
+      // ── Fila de filtros unificada ──
       Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         child: Row(children: [
-          // Botones estado
-          _filtroBtn("Todos",    filtroEstado == "Todos",    Colors.white54, () { setState(() => filtroEstado = "Todos");    aplicarFiltros(); }),
-          const SizedBox(width: 4),
-          _filtroBtn("✅",       filtroEstado == "Activos",  kGreen,         () { setState(() => filtroEstado = "Activos");  aplicarFiltros(); }),
-          const SizedBox(width: 4),
-          _filtroBtn("🔴",      filtroEstado == "Vencidos", kOrange,        () { setState(() => filtroEstado = "Vencidos"); aplicarFiltros(); }),
-          const SizedBox(width: 8),
-          // Mes
-          _dropdownMini("Mes", filtroMes == null ? "Mes" : mesesTexto[filtroMes! - 1].substring(0, 3), () {
-            _showMesPicker();
-          }),
+
+          // ── Botón Todos ──
+          _btnFiltro(
+            label: "Todos",
+            count: sinFiltroEstado.length,
+            color: Colors.white54,
+            selected: filtroEstado == "Todos",
+            onTap: () { setState(() => filtroEstado = "Todos"); aplicarFiltros(); },
+          ),
           const SizedBox(width: 6),
-          // Paquete
-          Expanded(
-            child: GestureDetector(
-              onTap: _showPaquetePicker,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-                decoration: BoxDecoration(
-                  color: filtroPaquete != "Todos" ? kBlue.withOpacity(0.2) : kCard2,
-                  borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: filtroPaquete != "Todos" ? kBlue : Colors.white12),
-                ),
-                child: Text(
-                  filtroPaquete == "Todos" ? "Paquete" : filtroPaquete.length > 14 ? "${filtroPaquete.substring(0, 14)}…" : filtroPaquete,
-                  style: TextStyle(color: filtroPaquete != "Todos" ? kBlue : Colors.white38, fontSize: 11),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-            ),
+
+          // ── Botón Vencidos (naranja) con conteo ──
+          _btnFiltro(
+            label: "Vencidos",
+            count: cntVencidos,
+            color: kOrange,
+            selected: filtroEstado == "Vencidos",
+            onTap: () { setState(() => filtroEstado = "Vencidos"); aplicarFiltros(); },
+          ),
+          const SizedBox(width: 6),
+
+          // ── Botón Activos (verde) con conteo ──
+          _btnFiltro(
+            label: "Activos",
+            count: cntActivos,
+            color: kGreen,
+            selected: filtroEstado == "Activos",
+            onTap: () { setState(() => filtroEstado = "Activos"); aplicarFiltros(); },
+          ),
+
+          const Spacer(),
+
+          // ── Mes ──
+          _chipFiltro(
+            label: filtroMes == null ? "Mes" : mesesTexto[filtroMes! - 1].substring(0, 3),
+            active: filtroMes != null,
+            color: kBlue,
+            onTap: _showMesPicker,
+          ),
+          const SizedBox(width: 5),
+
+          // ── Paquete ──
+          _chipFiltro(
+            label: filtroPaquete == "Todos" ? "Paquete" :
+              (filtroPaquete.length > 10 ? "${filtroPaquete.substring(0, 10)}…" : filtroPaquete),
+            active: filtroPaquete != "Todos",
+            color: kBlue,
+            onTap: _showPaquetePicker,
           ),
         ]),
       ),
 
-      // Años
+      // ── Años ──
       SizedBox(
-        height: 36,
+        height: 34,
         child: ListView(
           scrollDirection: Axis.horizontal,
           padding: const EdgeInsets.symmetric(horizontal: 8),
           children: listaAnios.map((anio) => GestureDetector(
             onTap: () { setState(() => filtroAnio = anio); aplicarFiltros(); },
             child: Container(
-              margin: const EdgeInsets.only(right: 6, top: 4, bottom: 4),
+              margin: const EdgeInsets.only(right: 6, top: 3, bottom: 3),
               padding: const EdgeInsets.symmetric(horizontal: 12),
               decoration: BoxDecoration(
                 color: filtroAnio == anio ? kGreen : kCard2,
-                borderRadius: BorderRadius.circular(16),
-              ),
+                borderRadius: BorderRadius.circular(16)),
               child: Center(child: Text(anio.toString(),
-                style: TextStyle(color: filtroAnio == anio ? Colors.black : Colors.white70,
+                style: TextStyle(
+                  color: filtroAnio == anio ? Colors.black : Colors.white70,
                   fontWeight: FontWeight.bold, fontSize: 12))),
             ),
           )).toList(),
         ),
       ),
 
-      // Resumen
+      // ── Resumen compacto ──
       Padding(
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
         child: Row(children: [
-          Text("${clientesFiltrados.length} · \$${acumFiltro.toStringAsFixed(0)}",
+          Text("${clientesFiltrados.length} registros · \$${acumFiltro.toStringAsFixed(0)}",
             style: const TextStyle(color: Colors.white38, fontSize: 11)),
-          const Spacer(),
-          _badge("$vencidos venc.", kOrange),
-          const SizedBox(width: 4),
-          _badge("$activos activ.", kGreen),
         ]),
       ),
 
-      // Lista
+      // ── Lista ──
       Expanded(
         child: ListView.builder(
           itemCount: clientesFiltrados.length,
@@ -604,10 +616,67 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     ]);
   }
 
+  // Botón filtro principal con label + conteo
+  Widget _btnFiltro({
+    required String label,
+    required int count,
+    required Color color,
+    required bool selected,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 150),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: selected ? color.withOpacity(0.2) : kCard2,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: selected ? color : Colors.white12, width: 1.5),
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          Text(label, style: TextStyle(
+            color: selected ? color : Colors.white38,
+            fontSize: 12, fontWeight: FontWeight.w600)),
+          const SizedBox(width: 5),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+            decoration: BoxDecoration(
+              color: selected ? color : color.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(10)),
+            child: Text("$count", style: TextStyle(
+              color: selected ? Colors.black : color,
+              fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
+        ]),
+      ),
+    );
+  }
+
+  // Chip secundario para Mes y Paquete
+  Widget _chipFiltro({
+    required String label,
+    required bool active,
+    required Color color,
+    required VoidCallback onTap,
+  }) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 6),
+        decoration: BoxDecoration(
+          color: active ? color.withOpacity(0.15) : kCard2,
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: active ? color : Colors.white12, width: 1.2),
+        ),
+        child: Text(label, style: TextStyle(
+          color: active ? color : Colors.white38, fontSize: 11)),
+      ),
+    );
+  }
+
   void _showMesPicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: kCard,
+    showModalBottomSheet(context: context, backgroundColor: kCard,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
       builder: (_) => Column(mainAxisSize: MainAxisSize.min, children: [
         ListTile(
@@ -624,12 +693,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   }
 
   void _showPaquetePicker() {
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: kCard,
+    showModalBottomSheet(context: context, backgroundColor: kCard,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(16))),
-      builder: (_) => ListView(
-        shrinkWrap: true,
+      builder: (_) => ListView(shrinkWrap: true,
         children: paquetes.map((p) => ListTile(
           title: Text(p, style: const TextStyle(color: Colors.white, fontSize: 13)),
           tileColor: filtroPaquete == p ? kBlue.withOpacity(0.1) : null,
@@ -639,58 +705,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     );
   }
 
-  Widget _dropdownMini(String label, String value, VoidCallback onTap) {
-    final active = value != label;
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
-        decoration: BoxDecoration(
-          color: active ? kGreen.withOpacity(0.15) : kCard2,
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(color: active ? kGreen : Colors.white12),
-        ),
-        child: Text(value, style: TextStyle(color: active ? kGreen : Colors.white38, fontSize: 11)),
-      ),
-    );
-  }
-
-  Widget _filtroBtn(String label, bool selected, Color color, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.2) : kCard2,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: selected ? color : Colors.white12, width: 1.2),
-        ),
-        child: Text(label, style: TextStyle(
-          color: selected ? color : Colors.white38,
-          fontSize: 12, fontWeight: selected ? FontWeight.bold : FontWeight.normal)),
-      ),
-    );
-  }
-
-  Widget _badge(String text, Color color) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.3))),
-      child: Text(text, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
-    );
-  }
-
+  // ─── CARD ────────────────────────────────────────────────
   Widget _buildCard(Map c) {
-    final fecha    = DateTime.tryParse(c['fecha_compra'] ?? '') ?? DateTime.now();
-    final venc     = _fechaVencimiento(c);
-    final vencido  = estaVencido(c);
-    final dias     = diasParaVencer(c);
-    final notif    = c['notificacion_enviada'] ?? false;
-    final canal    = c['canal_contacto'] ?? 'messenger';
-    final nota     = (c['nota'] ?? '').toString();
+    final fecha   = DateTime.tryParse(c['fecha_compra'] ?? '') ?? DateTime.now();
+    final venc    = _fechaVencimiento(c);
+    final vencido = estaVencido(c);
+    final dias    = diasParaVencer(c);
+    final notif   = c['notificacion_enviada'] ?? false;
+    final canal   = c['canal_contacto'] ?? 'messenger';
+    final nota    = (c['nota'] ?? '').toString();
 
     Color borderColor = vencido ? kOrange : kGreen;
     Color bgColor     = vencido ? const Color(0xFF150800) : kCard;
@@ -722,7 +745,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               Text("\$${c['monto']}", style: const TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.w600)),
               Row(children: [
                 Text("${DateFormat('dd/MM/yy').format(fecha)} → ",
-                  style: const TextStyle(color: Colors.white38, fontSize: 10)),
+                  style: const TextStyle(color: kGreen, fontSize: 10)),
                 Text(DateFormat('dd/MM/yy').format(venc),
                   style: TextStyle(color: vencido ? kOrange : Colors.white38, fontSize: 10,
                     fontWeight: vencido ? FontWeight.bold : FontWeight.normal)),
@@ -791,7 +814,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     return SingleChildScrollView(
       padding: const EdgeInsets.all(10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        // Acumulados
         Row(children: [
           _acumCard("Acum. $mesActual", ingresosMes,  kGreen, Icons.calendar_today),
           const SizedBox(width: 8),
@@ -803,11 +825,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           const SizedBox(width: 8),
           _statCard("Vencidos", totalVencidos.toString(), kOrange, Icons.warning_amber_outlined),
           const SizedBox(width: 8),
-          _statCard("Total",    (totalActivos + totalVencidos).toString(), Colors.white38, Icons.people_outline),
+          _statCard("Total", (totalActivos + totalVencidos).toString(), Colors.white38, Icons.people_outline),
         ]),
         const SizedBox(height: 10),
-
-        // Meta
         Container(
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(color: kCard, borderRadius: BorderRadius.circular(12)),
@@ -833,13 +853,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               child: LinearProgressIndicator(
                 value: pct.clamp(0.0, 1.0), minHeight: 7,
                 backgroundColor: kCard2,
-                valueColor: AlwaysStoppedAnimation(pct >= 1 ? kGreen : kOrange),
-              ),
+                valueColor: AlwaysStoppedAnimation(pct >= 1 ? kGreen : kOrange)),
             ),
           ]),
         ),
         const SizedBox(height: 10),
-
         const Text("Ingresos por mes", style: TextStyle(color: Colors.white70, fontSize: 12, fontWeight: FontWeight.bold)),
         const SizedBox(height: 6),
         Container(
@@ -848,11 +866,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           child: _graficaBarras(),
         ),
         const SizedBox(height: 10),
-
         Row(children: [
           const Text("Vencidos sin avisar", style: TextStyle(color: kOrange, fontSize: 12, fontWeight: FontWeight.bold)),
           const SizedBox(width: 6),
-          _badge("${clientes.where((c) => estaVencido(c) && !(c['notificacion_enviada'] ?? false)).length}", kOrange),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+            decoration: BoxDecoration(color: kOrange.withOpacity(0.2), borderRadius: BorderRadius.circular(10)),
+            child: Text(
+              "${clientes.where((c) => estaVencido(c) && !(c['notificacion_enviada'] ?? false)).length}",
+              style: const TextStyle(color: kOrange, fontSize: 11, fontWeight: FontWeight.bold)),
+          ),
         ]),
         const SizedBox(height: 6),
         ...clientes.where((c) => estaVencido(c) && !(c['notificacion_enviada'] ?? false)).take(15).map((c) =>
@@ -918,7 +941,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final now = DateTime.now();
     final mesesOrden = mesesTexto.take(now.month).toList();
     final maxVal = ingresosPorMes.values.isEmpty ? 1.0 : ingresosPorMes.values.reduce((a, b) => a > b ? a : b);
-
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: mesesOrden.map((mes) {
@@ -936,8 +958,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 height: (ratio * 120).clamp(4.0, 120.0),
                 decoration: BoxDecoration(
                   color: esMesActual ? kGreen : kRed.withOpacity(0.7),
-                  borderRadius: BorderRadius.circular(3)),
-              ),
+                  borderRadius: BorderRadius.circular(3))),
               const SizedBox(height: 3),
               Text(mes.substring(0, 3),
                 style: TextStyle(color: esMesActual ? kGreen : Colors.white38, fontSize: 7,
@@ -971,14 +992,14 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   // ─── TAB CLIENTES ────────────────────────────────────────
   Widget _tabClientes() {
-    final textoC = buscadorClientes.text.toLowerCase();
+    final textoC = buscadorClientes.text.toLowerCase().replaceAll(' ', '');
 
     Map<String, List> grupos = {};
     for (var c in clientes) {
-      final email  = (c['email']    ?? '').toString().trim();
-      final tel    = (c['telefono'] ?? '').toString().trim();
-      final nom    = (c['nombre_fb']?? '').toString().trim();
-      String key   = email.isNotEmpty ? email : (tel.isNotEmpty && tel.length > 5 ? tel : nom);
+      final email = (c['email']    ?? '').toString().trim();
+      final tel   = (c['telefono'] ?? '').toString().trim();
+      final nom   = (c['nombre_fb']?? '').toString().trim();
+      String key  = email.isNotEmpty ? email : (tel.isNotEmpty && tel.length > 5 ? tel : nom);
       if (key.isEmpty) key = 'Sin identificador';
       grupos.putIfAbsent(key, () => []);
       grupos[key]!.add(c);
@@ -987,18 +1008,17 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     List<MapEntry<String, List>> lista = grupos.entries.toList();
     lista.sort((a, b) => b.value.length.compareTo(a.value.length));
 
-    // ✅ Filtrar por búsqueda en tab clientes
     if (textoC.isNotEmpty) {
       lista = lista.where((e) {
         final rep = e.value.first;
+        final telC = (rep['telefono'] ?? '').toString().toLowerCase().replaceAll(' ', '');
         return _identidad(rep).toLowerCase().contains(textoC) ||
-               (rep['email']    ?? '').toString().toLowerCase().contains(textoC) ||
-               (rep['telefono'] ?? '').toString().toLowerCase().contains(textoC);
+               (rep['email'] ?? '').toString().toLowerCase().contains(textoC) ||
+               telC.contains(textoC);
       }).toList();
     }
 
     return Column(children: [
-      // ✅ Buscador en tab clientes
       Padding(
         padding: const EdgeInsets.fromLTRB(8, 6, 8, 4),
         child: SizedBox(
@@ -1030,16 +1050,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           padding: const EdgeInsets.fromLTRB(8, 4, 8, 80),
           itemCount: lista.length,
           itemBuilder: (_, i) {
-            final entry    = lista[i];
-            final compras  = entry.value;
+            final entry   = lista[i];
+            final compras = entry.value;
             compras.sort((a, b) {
               final fa = DateTime.tryParse(a['fecha_compra'] ?? '') ?? DateTime(2000);
               final fb = DateTime.tryParse(b['fecha_compra'] ?? '') ?? DateTime(2000);
               return fb.compareTo(fa);
             });
-            final ultima   = compras.first;
-            final vencido  = estaVencido(ultima);
-            final total    = compras.fold<double>(0, (s, c) => s + (c['monto'] ?? 0).toDouble());
+            final ultima  = compras.first;
+            final vencido = estaVencido(ultima);
+            final total   = compras.fold<double>(0, (s, c) => s + (c['monto'] ?? 0).toDouble());
 
             return GestureDetector(
               onTap: () => verHistorialCliente(ultima),
@@ -1049,8 +1069,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 decoration: BoxDecoration(
                   color: kCard,
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: vencido ? kOrange.withOpacity(0.3) : kGreen.withOpacity(0.3)),
-                ),
+                  border: Border.all(color: vencido ? kOrange.withOpacity(0.3) : kGreen.withOpacity(0.3))),
                 child: Row(children: [
                   Container(
                     width: 36, height: 36,
@@ -1073,7 +1092,16 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                       style: const TextStyle(color: Colors.white38, fontSize: 10), overflow: TextOverflow.ellipsis),
                   ])),
                   Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                    _badge("${compras.length} compras", compras.length >= 3 ? kGreen : Colors.white38),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: (compras.length >= 3 ? kGreen : Colors.white38).withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(8)),
+                      child: Text("${compras.length} compras",
+                        style: TextStyle(
+                          color: compras.length >= 3 ? kGreen : Colors.white38,
+                          fontSize: 10, fontWeight: FontWeight.bold)),
+                    ),
                     const SizedBox(height: 3),
                     Text("\$${total.toStringAsFixed(0)}",
                       style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold, fontSize: 12)),
