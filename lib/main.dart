@@ -130,6 +130,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
   bool estaVencido(Map c) => DateTime.now().isAfter(_fechaVencimiento(c));
   int  diasParaVencer(Map c) => _fechaVencimiento(c).difference(DateTime.now()).inDays;
 
+  String _tiempoRestante(bool vencido, int dias, dynamic mesesComprados) {
+    if (vencido) return "VENCIDO";
+    if (dias <= 7) return "⚠️ ${dias}d";
+    if (dias <= 30) {
+      final semanas   = dias ~/ 7;
+      final diasExtra = dias % 7;
+      return diasExtra > 0 ? "${semanas}sem ${diasExtra}d" : "${semanas}sem";
+    }
+    final mesesRest = dias ~/ 30;
+    final diasRest  = dias % 30;
+    return diasRest > 0 ? "${mesesRest}m ${diasRest}d" : "${mesesRest}m";
+  }
+
   void aplicarFiltros() {
     final texto    = buscador.text.toLowerCase().replaceAll(' ', '');
     final res = clientes.where((c) {
@@ -760,8 +773,8 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   color: vencido ? kOrange.withOpacity(0.15) : kGreen.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(6)),
                 child: Text(
-                  vencido ? "VENCIDO" : (!vencido && dias <= 7 ? "⚠️${dias}d" : "${c['meses']}m"),
-                  style: TextStyle(color: vencido ? kOrange : kGreen, fontSize: 9, fontWeight: FontWeight.bold)),
+                  _tiempoRestante(vencido, dias, c['meses']),
+                  style: TextStyle(color: vencido ? kOrange : (dias <= 7 ? Colors.yellow : kGreen), fontSize: 9, fontWeight: FontWeight.bold)),
               ),
               const SizedBox(height: 6),
               GestureDetector(
