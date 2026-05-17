@@ -164,7 +164,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     res.sort((a, b) {
       final fa = DateTime.tryParse(a['fecha_compra'] ?? '') ?? DateTime(2000);
       final fb = DateTime.tryParse(b['fecha_compra'] ?? '') ?? DateTime(2000);
-      return fb.compareTo(fa);
+      return fa.compareTo(fb);
     });
     setState(() => clientesFiltrados = res);
   }
@@ -390,6 +390,12 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     final meses    = TextEditingController(text: (c['meses']    ?? 1).toString());
     final monto    = TextEditingController(text: (c['monto']    ?? 0).toString());
     final nota     = TextEditingController(text: c['nota']      ?? '');
+    // Fecha editable — formato yyyy-MM-dd
+    final fechaCtrl = TextEditingController(
+      text: c['fecha_compra'] != null
+        ? DateFormat('yyyy-MM-dd').format(DateTime.tryParse(c['fecha_compra']) ?? DateTime.now())
+        : DateFormat('yyyy-MM-dd').format(DateTime.now()),
+    );
     String canal   = c['canal_contacto'] ?? 'messenger';
 
     showDialog(context: context,
@@ -398,14 +404,50 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           backgroundColor: kCard,
           title: const Text("Editar venta", style: TextStyle(color: kGreen, fontWeight: FontWeight.bold)),
           content: SingleChildScrollView(child: Column(children: [
-            _field(nombre,   "Nombre (FB)"),
-            _field(email,    "Email",           type: TextInputType.emailAddress),
-            _field(telefono, "Teléfono",        type: TextInputType.phone),
-            _field(paquete,  "Paquete"),
-            _field(meses,    "Meses de acceso", type: TextInputType.number),
-            _field(monto,    "Monto (\$)",      type: TextInputType.number),
-            _field(nota,     "Nota"),
-            const SizedBox(height: 10),
+            _field(nombre,    "Nombre (FB)"),
+            _field(email,     "Email",           type: TextInputType.emailAddress),
+            _field(telefono,  "Teléfono",        type: TextInputType.phone),
+            _field(paquete,   "Paquete"),
+            _field(meses,     "Meses de acceso", type: TextInputType.number),
+            _field(monto,     "Monto (\$)",      type: TextInputType.number),
+            _field(nota,      "Nota"),
+            // Fecha con selector
+            Padding(
+              padding: const EdgeInsets.only(bottom: 12),
+              child: GestureDetector(
+                onTap: () async {
+                  final picked = await showDatePicker(
+                    context: ctx,
+                    initialDate: DateTime.tryParse(fechaCtrl.text) ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime(2030),
+                    builder: (_, child) => Theme(
+                      data: ThemeData.dark().copyWith(
+                        colorScheme: const ColorScheme.dark(primary: kGreen),
+                      ),
+                      child: child!,
+                    ),
+                  );
+                  if (picked != null) {
+                    setS(() => fechaCtrl.text = DateFormat('yyyy-MM-dd').format(picked));
+                  }
+                },
+                child: AbsorbPointer(
+                  child: TextField(
+                    controller: fechaCtrl,
+                    style: const TextStyle(color: Colors.white),
+                    decoration: const InputDecoration(
+                      labelText: "Fecha de compra",
+                      labelStyle: TextStyle(color: Colors.white54, fontSize: 13),
+                      suffixIcon: Icon(Icons.calendar_today, color: kGreen, size: 18),
+                      enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.white24)),
+                      focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: kGreen)),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 4),
             Row(children: [
               const Text("Canal: ", style: TextStyle(color: Colors.white70)),
               const SizedBox(width: 8),
@@ -420,11 +462,15 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
               style: ElevatedButton.styleFrom(backgroundColor: kRed),
               onPressed: () async {
                 await supabase.from('ventas').update({
-                  "nombre_fb": nombre.text, "email": email.text,
-                  "telefono": telefono.text, "paquete": paquete.text,
-                  "meses": int.tryParse(meses.text) ?? 1,
-                  "monto": double.tryParse(monto.text) ?? 0,
-                  "canal_contacto": canal, "nota": nota.text,
+                  "nombre_fb":      nombre.text,
+                  "email":          email.text,
+                  "telefono":       telefono.text,
+                  "paquete":        paquete.text,
+                  "meses":          int.tryParse(meses.text) ?? 1,
+                  "monto":          double.tryParse(monto.text) ?? 0,
+                  "canal_contacto": canal,
+                  "nota":           nota.text,
+                  "fecha_compra":   fechaCtrl.text,
                 }).eq('id', c['id']);
                 Navigator.pop(ctx);
                 cargarClientes();
