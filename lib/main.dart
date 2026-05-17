@@ -290,6 +290,35 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
     _snack('${activos.length} correos copiados ✓');
   }
 
+  void exportarCSV() {
+    try {
+      final headers = 'nombre_fb,email,telefono,pais,paquete,monto,fecha_compra,meses,canal_contacto,nota,estado';
+      final rows = clientes.map((c) {
+        final vencido = estaVencido(c);
+        String esc(dynamic v) => '"${v.toString().replaceAll('"', '""')}"';
+        return [
+          esc(c['nombre_fb'] ?? ''),
+          esc(c['email']     ?? ''),
+          esc(c['telefono']  ?? ''),
+          esc(c['pais']      ?? ''),
+          esc(c['paquete']   ?? ''),
+          c['monto']         ?? 0,
+          esc(c['fecha_compra'] ?? ''),
+          c['meses']         ?? 1,
+          esc(c['canal_contacto'] ?? ''),
+          esc(c['nota']      ?? ''),
+          esc(vencido ? 'VENCIDO' : 'ACTIVO'),
+        ].join(',');
+      }).join('\n');
+
+      final csv = '$headers\n$rows';
+      Clipboard.setData(ClipboardData(text: csv));
+      _snack('✅ CSV copiado al portapapeles — pégalo en Excel o Google Sheets');
+    } catch (e) {
+      _snack('Error al exportar: $e');
+    }
+  }
+
   void _snack(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(msg), backgroundColor: kCard2, duration: const Duration(seconds: 3)));
@@ -455,6 +484,11 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
           const Text("Remix Pro DJ", style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
         ]),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.download, color: Colors.white54, size: 20),
+            tooltip: 'Exportar todo a CSV',
+            onPressed: exportarCSV,
+          ),
           IconButton(
             icon: const Icon(Icons.email_outlined, color: kGreen, size: 20),
             tooltip: 'Exportar correos activos',
